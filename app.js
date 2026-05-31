@@ -683,7 +683,7 @@ const editorApp = createApp({
           codeContent = md.utils.escapeHtml(str);
         }
 
-        return `<div style="margin: 20px 0; border-radius: 8px; overflow: hidden; background: #383a42; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">${dots}<div style="padding: 16px; overflow-x: auto; background: #383a42;"><code style="display: block; color: #abb2bf; font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace; font-size: 14px; line-height: 1.6; white-space: pre;">${codeContent}</code></div></div>`;
+        return `<div class="code-block-wrapper" style="margin: 20px 0; border-radius: 8px; overflow: hidden; background: #383a42; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">${dots}<div style="padding: 16px; overflow-x: auto; background: #383a42;"><code style="display: block; color: #abb2bf; font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace; font-size: 14px; line-height: 1.6; white-space: pre;">${codeContent}</code></div></div>`;
       }
     });
 
@@ -794,31 +794,8 @@ const editorApp = createApp({
       }
     },
 
-    // 初始化浮动广告
     initFloatingAd() {
-      let shouldShow = true;
-      try {
-        const closed = localStorage.getItem('floatingAdClosed');
-        if (closed) {
-          const closedTime = parseInt(closed, 10);
-          if (!Number.isNaN(closedTime)) {
-            shouldShow = Date.now() - closedTime >= 24 * 60 * 60 * 1000;
-          }
-        }
-      } catch (error) {
-        console.warn('读取浮动广告状态失败:', error);
-      }
-
-      if (!shouldShow) {
-        this.floatingAd.isVisible = false;
-        return;
-      }
-
-      setTimeout(() => {
-        this.floatingAd.isVisible = true;
-      }, 3000);
-
-      this.startFloatingAdRotation();
+      this.floatingAd.isVisible = false;
     },
 
     startFloatingAdRotation() {
@@ -1465,9 +1442,10 @@ const markdown = \`![图片](img://\${imageId})\`;
         return;
       }
 
+      let doc = null;
       try {
         const parser = new DOMParser();
-        const doc = parser.parseFromString(this.renderedContent, 'text/html');
+        doc = parser.parseFromString(this.renderedContent, 'text/html');
 
         // 将图片网格转换为 table 布局（公众号兼容）
         this.convertGridToTable(doc);
@@ -1563,39 +1541,141 @@ const markdown = \`![图片](img://\${imageId})\`;
           doc.body.appendChild(section);
         }
 
-        // 代码块简化
-        const codeBlocks = doc.querySelectorAll('div[style*="border-radius: 8px"]');
+        // 代码块简化并保留代码高亮（通过注入 inline 样式）
+        const codeBlocks = doc.querySelectorAll('div.code-block-wrapper, pre');
         codeBlocks.forEach(block => {
-          const codeElement = block.querySelector('code');
-          if (codeElement) {
-            const codeText = codeElement.textContent || codeElement.innerText;
-            const pre = doc.createElement('pre');
-            const code = doc.createElement('code');
+          // 如果该节点已经被移除（父节点为空），则跳过
+          if (!block.parentNode) {
+            return;
+          }
+          // 如果该节点在另一个已被选中的 code-block-wrapper 内部，也跳过
+          if (block.tagName.toLowerCase() === 'pre' && block.closest('.code-block-wrapper')) {
+            return;
+          }
 
-            pre.setAttribute('style',
-              'background: linear-gradient(to bottom, #2a2c33 0%, #383a42 8px, #383a42 100%);' +
+          const codeElement = block.querySelector('code') || block;
+          if (codeElement) {
+            // 先对 codeElement 内部的 span 标签应用 inline 样式，以在复制到公众号后保留高亮
+            const spans = codeElement.querySelectorAll('span');
+            const hljsStyleMap = {
+              'hljs-comment': 'color: #5c6370; font-style: italic;',
+              'hljs-quote': 'color: #5c6370; font-style: italic;',
+              'hljs-keyword': 'color: #c678dd;',
+              'hljs-selector-tag': 'color: #c678dd;',
+              'hljs-literal': 'color: #56b6c2;',
+              'hljs-section': 'color: #e06c75;',
+              'hljs-link': 'color: #c678dd;',
+              'hljs-type': 'color: #d19a66;',
+              'hljs-template-variable': 'color: #e06c75;',
+              'hljs-variable': 'color: #e06c75;',
+              'hljs-attr': 'color: #d19a66;',
+              'hljs-attribute': 'color: #e06c75;',
+              'hljs-tag': 'color: #e06c75;',
+              'hljs-name': 'color: #e06c75;',
+              'hljs-regexp': 'color: #e06c75;',
+              'hljs-deletion': 'color: #e06c75;',
+              'hljs-number': 'color: #d19a66;',
+              'hljs-symbol': 'color: #d19a66;',
+              'hljs-bullet': 'color: #d19a66;',
+              'hljs-class': 'color: #e5c07b;',
+              'hljs-meta': 'color: #61afef;',
+              'hljs-meta-keyword': 'color: #c678dd;',
+              'hljs-selector-id': 'color: #61afef;',
+              'hljs-selector-class': 'color: #61afef;',
+              'hljs-string': 'color: #98c379;',
+              'hljs-value': 'color: #98c379;',
+              'hljs-inheritance': 'color: #98c379;',
+              'hljs-header': 'color: #98c379;',
+              'hljs-addition': 'color: #98c379;',
+              'hljs-title': 'color: #61afef;',
+              'hljs-params': 'color: #abb2bf;',
+              'hljs-subst': 'color: #abb2bf;',
+              'hljs-built_in': 'color: #e5c07b;',
+              'hljs-doctag': 'color: #c678dd;',
+              'hljs-formula': 'color: #c678dd;',
+              'hljs-emphasis': 'font-style: italic;',
+              'hljs-strong': 'font-weight: bold;'
+            };
+
+            spans.forEach(span => {
+              const classes = span.classList;
+              let spanStyle = span.getAttribute('style') || '';
+              classes.forEach(cls => {
+                if (hljsStyleMap[cls]) {
+                  if (!spanStyle.includes(hljsStyleMap[cls])) {
+                    spanStyle += '; ' + hljsStyleMap[cls];
+                  }
+                }
+              });
+              if (spanStyle) {
+                span.setAttribute('style', spanStyle);
+              }
+            });
+
+            const codeHTML = codeElement.innerHTML;
+
+            // 使用 section 替代 pre / code，避免被公众号后台编辑器清洗样式
+            const preSection = doc.createElement('section');
+            preSection.setAttribute('style',
+              'background-color: #282c34;' +
+              'background: #282c34;' +
               'padding: 0;' +
-              'border-radius: 6px;' +
+              'border-radius: 8px;' +
               'overflow: hidden;' +
               'margin: 24px 0;' +
-              'box-shadow: 0 2px 8px rgba(0,0,0,0.15);'
+              'box-shadow: 0 2px 8px rgba(0,0,0,0.15);' +
+              'border: 1px solid #181a1f;'
             );
 
-            code.setAttribute('style',
+            // 保持 macOS 风格的窗口装饰（使用公众号支持的 inline-block 水平排列方式，防止微信内错乱）
+            // 注意：微信公众号编辑器（基于 UEditor）会自动删除所有没有任何内容（包括空格）的空 span 标签。
+            // 因此必须在 span 内部填充不占位置的字符（如 &nbsp; 结合 font-size: 0/overflow: hidden），以防止被微信清洗。
+            const dotsSection = doc.createElement('section');
+            dotsSection.setAttribute('style',
+              'padding: 10px 12px;' +
+              'background-color: #20242c;' +
+              'background: #20242c;' +
+              'border-bottom: 1px solid #181a1f;' +
+              'line-height: 1;' +
+              'text-align: left;'
+            );
+
+            const redDot = doc.createElement('span');
+            redDot.setAttribute('style', 'width: 10px; height: 10px; border-radius: 50%; display: inline-block; background-color: #ff5f56; background: #ff5f56; margin-right: 6px; vertical-align: middle; font-size: 0; line-height: 0; overflow: hidden;');
+            redDot.innerHTML = '&nbsp;';
+            const yellowDot = doc.createElement('span');
+            yellowDot.setAttribute('style', 'width: 10px; height: 10px; border-radius: 50%; display: inline-block; background-color: #ffbd2e; background: #ffbd2e; margin-right: 6px; vertical-align: middle; font-size: 0; line-height: 0; overflow: hidden;');
+            yellowDot.innerHTML = '&nbsp;';
+            const greenDot = doc.createElement('span');
+            greenDot.setAttribute('style', 'width: 10px; height: 10px; border-radius: 50%; display: inline-block; background-color: #27c93f; background: #27c93f; vertical-align: middle; font-size: 0; line-height: 0; overflow: hidden;');
+            greenDot.innerHTML = '&nbsp;';
+
+            dotsSection.appendChild(redDot);
+            dotsSection.appendChild(yellowDot);
+            dotsSection.appendChild(greenDot);
+            preSection.appendChild(dotsSection);
+
+            const codeSection = doc.createElement('section');
+            codeSection.setAttribute('style',
               'color: #abb2bf;' +
-              'font-family: "SF Mono", Consolas, Monaco, "Courier New", monospace;' +
+              'font-family: Consolas, Monaco, "Courier New", monospace;' +
               'font-size: 14px;' +
               'line-height: 1.7;' +
               'display: block;' +
-              'white-space: pre;' +
+              'white-space: pre-wrap;' +
+              'word-break: break-all;' +
+              'word-wrap: break-word;' +
               'padding: 16px 20px;' +
+              'background-color: #282c34;' +
+              'background: #282c34;' +
               '-webkit-font-smoothing: antialiased;' +
               '-moz-osx-font-smoothing: grayscale;'
             );
 
-            code.textContent = codeText;
-            pre.appendChild(code);
-            block.parentNode.replaceChild(pre, block);
+            codeSection.innerHTML = codeHTML;
+            preSection.appendChild(codeSection);
+
+            block.parentNode.replaceChild(preSection, block);
           }
         });
 
@@ -1988,6 +2068,11 @@ const markdown = \`![图片](img://\${imageId})\`;
 
       // 如果已经是Base64，直接返回
       if (src.startsWith('data:')) {
+        return src;
+      }
+
+      // 如果是外部网络图片，直接返回原 URL，避免 CORS 跨域请求导致复制失败
+      if (src.startsWith('http://') || src.startsWith('https://')) {
         return src;
       }
 
