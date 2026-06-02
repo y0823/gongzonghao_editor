@@ -1755,7 +1755,7 @@
             <h3>开始编辑</h3>
             <p>左侧输入 Markdown，右侧实时预览</p>
           </div>
-          <div v-else class="preview-container" v-html="renderedContent"></div>
+          <div v-else class="preview-container" v-html="renderedContent" @click="handlePreviewClick"></div>
         </div>
 
         <!-- 小红书预览模式（已隐藏） -->

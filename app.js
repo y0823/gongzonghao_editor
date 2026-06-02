@@ -664,8 +664,15 @@ const editorApp = createApp({
       linkify: true,
       typographer: false,  // 禁用 typographer 以避免智能引号干扰加粗标记
       highlight: function (str, lang) {
-        // macOS 风格的窗口装饰
-        const dots = '<div style="display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: #2a2c33; border-bottom: 1px solid #1e1f24;"><span style="width: 12px; height: 12px; border-radius: 50%; background: #ff5f56;"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #ffbd2e;"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #27c93f;"></span></div>';
+        // macOS 风格的窗口装饰及复制按钮
+        const dots = '<div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #2a2c33; border-bottom: 1px solid #1e1f24;">' +
+                     '<div style="display: flex; gap: 6px;">' +
+                     '<span style="width: 12px; height: 12px; border-radius: 50%; background: #ff5f56;"></span>' +
+                     '<span style="width: 12px; height: 12px; border-radius: 50%; background: #ffbd2e;"></span>' +
+                     '<span style="width: 12px; height: 12px; border-radius: 50%; background: #27c93f;"></span>' +
+                     '</div>' +
+                     '<div class="code-copy-btn" style="color: #abb2bf; font-size: 12px; cursor: pointer; user-select: none;">复制代码</div>' +
+                     '</div>';
 
         // 检查 hljs 是否加载
         let codeContent = '';
@@ -754,6 +761,31 @@ const editorApp = createApp({
       } catch (error) {
         console.error('加载星标样式失败:', error);
         this.starredStyles = [];
+      }
+    },
+
+    handlePreviewClick(event) {
+      const btn = event.target.closest('.code-copy-btn');
+      if (btn) {
+        const wrapper = btn.closest('.code-block-wrapper');
+        if (wrapper) {
+          const codeEl = wrapper.querySelector('code');
+          if (codeEl) {
+            const codeText = codeEl.textContent;
+            navigator.clipboard.writeText(codeText).then(() => {
+              const originalText = btn.innerHTML;
+              btn.innerHTML = '已复制!';
+              btn.style.color = '#27c93f';
+              setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.color = '#abb2bf';
+              }, 2000);
+            }).catch(err => {
+              console.error('Copy failed', err);
+              this.showToast('复制失败', 'error');
+            });
+          }
+        }
       }
     },
 
@@ -1449,6 +1481,10 @@ const markdown = \`![图片](img://\${imageId})\`;
 
         // 将图片网格转换为 table 布局（公众号兼容）
         this.convertGridToTable(doc);
+
+        // 移除所有用于预览的“复制代码”按钮，防止其被带入微信公众号
+        const copyBtns = doc.querySelectorAll('.code-copy-btn');
+        copyBtns.forEach(btn => btn.remove());
 
         // 处理图片：转为 Base64（串行处理，降低内存峰值）
         const images = doc.querySelectorAll('img');
