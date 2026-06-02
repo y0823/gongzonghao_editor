@@ -690,7 +690,7 @@ const editorApp = createApp({
           codeContent = md.utils.escapeHtml(str);
         }
 
-        return `<div class="code-block-wrapper" style="margin: 20px 0; border-radius: 8px; overflow: hidden; background: #383a42; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">${dots}<div style="padding: 16px; overflow-x: auto; background: #383a42;"><code style="display: block; color: #abb2bf; font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace; font-size: 14px; line-height: 1.6; white-space: pre;">${codeContent}</code></div></div>`;
+        return `<section class="code-block-wrapper" style="margin: 20px 0; border-radius: 8px; overflow: hidden; background: #383a42; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">${dots}<section style="padding: 16px; overflow-x: auto; background: #383a42;"><pre style="margin: 0; padding: 0; background: transparent; border: none;"><code style="display: block; color: #abb2bf; font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace; font-size: 14px; line-height: 1.6; white-space: pre; user-select: all; -webkit-user-select: all;">${codeContent}</code></pre></section></section>`;
       }
     });
 
@@ -1481,10 +1481,6 @@ const markdown = \`![图片](img://\${imageId})\`;
 
         // 将图片网格转换为 table 布局（公众号兼容）
         this.convertGridToTable(doc);
-
-        // 移除所有用于预览的“复制代码”按钮，防止其被带入微信公众号
-        const copyBtns = doc.querySelectorAll('.code-copy-btn');
-        copyBtns.forEach(btn => btn.remove());
 
         // 处理图片：转为 Base64（串行处理，降低内存峰值）
         const images = doc.querySelectorAll('img');
