@@ -621,7 +621,9 @@ const editorApp = createApp({
       articleHistory: [],           // 历史文章列表
       showHistoryPanel: false,      // 侧边栏显示状态
       currentArticleId: null,       // 当前编辑的文章ID（用于防止重复保存）
-      copyXSuccess: false            // 复制到 X 成功状态
+      copyXSuccess: false,           // 复制到 X 成功状态
+      pdfSuccess: false,             // 导出 PDF 成功状态
+      pdfGenerating: false           // 正在导出 PDF 状态
     };
   },
 
@@ -1466,6 +1468,63 @@ const markdown = \`![图片](img://\${imageId})\`;
 
       // 替换网格为 table
       grid.parentNode.replaceChild(table, grid);
+    },
+
+    async exportToPdf() {
+      if (!this.renderedContent) {
+        this.showToast('没有内容可导出', 'error');
+        return;
+      }
+
+      this.pdfGenerating = true;
+      this.pdfSuccess = false;
+
+      try {
+        const element = document.querySelector('.preview-container');
+        
+        // 我们克隆一个元素来进行导出，防止影响原本的预览展示
+        const clone = element.cloneNode(true);
+        // 为了 PDF 的排版美观，给克隆的容器加一些边距
+        clone.style.padding = '20px 40px';
+        clone.style.background = '#fff';
+        clone.style.width = '800px'; // 固定宽度保证排版不变形
+        
+        // 隐藏不需要的按钮
+        const copyBtns = clone.querySelectorAll('.code-copy-btn');
+        copyBtns.forEach(btn => btn.remove());
+
+        // 临时放入文档流中供 html2pdf 读取
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '0';
+        tempContainer.appendChild(clone);
+        document.body.appendChild(tempContainer);
+
+        const opt = {
+          margin:       10,
+          filename:     'article-preview.pdf',
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true, logging: false },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        await html2pdf().set(opt).from(clone).save();
+
+        // 导出完成后清理
+        document.body.removeChild(tempContainer);
+
+        this.pdfSuccess = true;
+        this.showToast('PDF 导出成功', 'success');
+        setTimeout(() => {
+          this.pdfSuccess = false;
+        }, 2000);
+      } catch (err) {
+        console.error('PDF导出失败:', err);
+        this.showToast('导出失败，请检查网络或重试', 'error');
+      } finally {
+        this.pdfGenerating = false;
+      }
     },
 
     async copyToClipboard() {

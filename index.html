@@ -39,6 +39,9 @@
   <!-- html2canvas - 用于生成小红书图片 -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
+  <!-- html2pdf - 用于导出PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <style>
     :root {
       --color-primary: #000;
@@ -1734,6 +1737,15 @@
               @click="copyToXArticles"
             >
               {{ copyXSuccess ? '✓ 已复制' : '复制到 X' }}
+            </button>
+            <button
+              class="copy-btn copy-btn-pdf"
+              style="background-color: #f5f5f5; border: 1px solid #d9d9d9; color: #333;"
+              :class="{ success: pdfSuccess }"
+              :disabled="!renderedContent || pdfGenerating"
+              @click="exportToPdf"
+            >
+              {{ pdfGenerating ? '生成中...' : (pdfSuccess ? '✓ 已导出' : '导出为 PDF') }}
             </button>
             <button
               class="copy-btn"
