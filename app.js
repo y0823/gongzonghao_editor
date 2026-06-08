@@ -1493,14 +1493,6 @@ const markdown = \`![图片](img://\${imageId})\`;
         const copyBtns = clone.querySelectorAll('.code-copy-btn');
         copyBtns.forEach(btn => btn.remove());
 
-        // 临时放入文档流中供 html2pdf 读取
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.top = '0';
-        tempContainer.appendChild(clone);
-        document.body.appendChild(tempContainer);
-
         const opt = {
           margin:       10,
           filename:     'article-preview.pdf',
@@ -1509,10 +1501,8 @@ const markdown = \`![图片](img://\${imageId})\`;
           jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
+        // 直接传入未挂载的 clone 元素，html2pdf 会自动将其放入隐藏的 iframe 中正确渲染
         await html2pdf().set(opt).from(clone).save();
-
-        // 导出完成后清理
-        document.body.removeChild(tempContainer);
 
         this.pdfSuccess = true;
         this.showToast('PDF 导出成功', 'success');
